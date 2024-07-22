@@ -1,9 +1,3 @@
-#   TO DO:
-#       Improve documentation
-#           Add docstrings for all classes and methods
-#       Keep track of twists using seperate twist parameter
-#       Spead this across multiply files, that is put non-class function into a seperate file and then import this one into it.
-
 import numpy as np
 import sage.libs.lrcalc.lrcalc as lrcalc
 
@@ -11,7 +5,6 @@ class IrreducibleGLInvariantBundle:
     """
 
     """
-    # Note we are using tuples here to help with multiplication of GLInvariantBundles later, don't swtch them to lists!!
     _Qpartition = ()
     _SVpartition = ()
     
@@ -25,18 +18,23 @@ class IrreducibleGLInvariantBundle:
         if not(all(SVpartition[i] >= SVpartition[i+1] for i in range(len(SVpartition)-1))):
             raise Exception("SVpartition must be weakly decreasing")
         self._Qpartition = Qpartition
-        self._SVpartition = SVpartition
+        self._SVpartition = SVpartition    
         self._cohomologyRank = -1
         self._cohomology = ()
 
     def __repr__(self):
+        if all(x == 0 for x in [self.qPart()[0], self.qPart()[-1], self.svPart()[0], self.svPart()[-1]]):
+            return "𝒪"
+        elif self.qPart()[0] == 0 and self.qPart()[-1]==0:
+            return "𝛴^{}S^V".format(self.svPart())
+        elif self.svPart()[0] == 0 and self.svPart()[-1]==0:
+            return "𝛴^{}Q".format(self.qPart())
         return "𝛴^{}Q ⨂ 𝛴^{}S^V".format(self.qPart(), self.svPart())
 
     def __eq__(self,other):
         return (self.qPart() == other.qPart()) and (self.svPart() == other.svPart())
 
     def __mul__(self,other):
-        # TO DO: Double check that these rank calculations make sence
         minQRank = min(len(self.qPart()),len(other.qPart()))
         minSVRank = min(len(self.svPart()),len(other.svPart()))
 
@@ -66,6 +64,15 @@ class IrreducibleGLInvariantBundle:
     def svPart(self):
         return self._SVpartition
 
+    def qRank(self):
+        return len(self._Qpartition)
+
+    def svRank(self):
+        return len(self._SVpartition)
+
+    def grassRank(self):
+        return self.qRank(), self.qRank() + self.svRank()
+
     def cohomologyRank(self):
         if self._cohomologyRank == -1:
             self._computeCohomology()
@@ -76,21 +83,12 @@ class IrreducibleGLInvariantBundle:
             self._computeCohomology()
         return self._cohomology
 
-    def qRank(self):
-        return len(self._Qpartition)
-
-    def svRank(self):
-        return len(self._SVpartition)
-
-    def grassRank(self):
-        return self.qRank(), self.qRank() + self.svRank()
-
     def dual(self):
         return IrreducibleGLInvariantBundle(
                     [-1*x for x in reversed(self.qPart())],
                     [-1*x for x in reversed(self.svPart())])
 
-    def twist(self,n:int = 1):
+    def shift(self,n:int = 1):
         return IrreducibleGLInvariantBundle(
                     [x+n for x in self.qPart()],
                     [x+n for x in self.svPart()])
@@ -150,14 +148,14 @@ class GLInvariantBundle:
     def bundles(self):
         return self._bundles
 
-    def twist(self, n: int = 1):
-        return list(map(lambda x: (x[0].twist(),x[1]), self.bundles()))
+    def shift(self, n: int = 1):
+        return GLInvariantBundle(list(map(lambda x: (x[0].shift(n),x[1]), self.bundles())))
 
     def cohomology(self, n:int):
         """
-        Returns the nth cohomology of this direct sum of VectorBundles
+        Returns the nth cohomology of this GLInvariantBundle
         :param n: an integer
-        :return: A list of lists of integers
+        :return: Either 0 or a list of (list of integers, integer) pairs
         """
         coho = []
 
@@ -185,7 +183,7 @@ def wedgeFunctor(n: int, rank: int):
     Returns a partition corresponding to the nth wedge product length equal to rank
     :param n: an integer
     :param rank: an integer
-    :return: A list of integers
+    :return: A tuple of integers
     """
     if (rank < 0) or (n < 1):
         raise Exception("Rank must be non-negative and n must be positive")
@@ -201,7 +199,7 @@ def symetricFunctor(n: int, rank: int):
     Returns a partition corresponding to the nth symetric functor of length equal to rank
     :param n: an integer
     :param rank: an integer
-    :return: A list of integers
+    :return: A tuple of integers
     """
     if (rank < 0) or (n < 1):
         raise Exception("Rank must be non-negative and n must be positive")
@@ -210,6 +208,37 @@ def symetricFunctor(n: int, rank: int):
     p = [0]*rank
     p[0]=n
     return tuple(p)
+
+def tangentBundle(k: int, n: int):
+    """
+    Returns the cotangent bundle of G(n,k), which is Q ⨂ S = 𝛴^(1,0) ⨂ 𝛴^(0,-1)S^V 
+    :param k: an integer
+    :param n: an integer
+    :return: An IrreducibleGLInvariantBundle
+    """
+    qPart = [0]*k
+    qPart[0]=1
+    
+    svPart = [0]*(n-k)
+    svPart[-1] = -1
+    return IrreducibleGLInvariantBundle(tuple(qPart),tuple(svPart))
+
+def cotangentBundle(k: int, n: int):
+    """
+    Returns the cotangent bundle of G(n,k), which is Q^V ⨂ S^V = 𝛴^(0,-1) ⨂ 𝛴^(1,0)S^V 
+    :param k: an integer
+    :param n: an integer
+    :return: An IrreducibleGLInvariantBundle
+    """
+    return tangentBundle(k,n).dual()
+
+def end(bundle):
+    """
+    Returns End(bundle) = bundle ⨂ bundle^V
+    :param bundle: Either a IrreducibleGLIncariantBundle or a GLInvariantBundle
+    :return: A GLInvariantBundle
+    """
+    return bundle*(bundle.dual())
 
 def ImodIsquared(k: int, n: int):
     """
@@ -229,14 +258,15 @@ def ImodIsquared(k: int, n: int):
     svpartition[1] = 1
     return IrreducibleGLInvariantBundle((-1,-1),tuple(svpartition))
 
-
 def liftingBundle(bundle: IrreducibleGLInvariantBundle):
     k,n = bundle.grassRank()
     ImI2 = ImodIsquared(k,n)
-
-    return (bundle*(bundle.dual()))*GLInvariantBundle([(ImI2,1)])
+    return end(bundle)*GLInvariantBundle([(ImI2,1)])
 
 def liftable(bundle: IrreducibleGLInvariantBundle):
-    return liftingBundle(bundle).cohomology(2) == 0
-
+    l = liftingBundle(bundle)
+    for (bun, mult) in l.bundles():
+        if bun.cohomologyRank() == 2:
+            return False
+    return True
 
