@@ -1,5 +1,6 @@
 from numpy import argsort
 import sage.libs.lrcalc.lrcalc as lrcalc
+from itertools import combinations_with_replacement
 
 class IrreducibleGLInvariantBundle:
     """
@@ -305,36 +306,47 @@ def liftable(bundle: IrreducibleGLInvariantBundle):
             return False
     return True
 
-def exhuastiveObstructionSearch(end: int, start: int = 0, k: int = 2, n: int = 5, checkpoint: int = 10):
+# Here we define the function that will do the main search work for us
+# In order to use this code the minimum requirement is to understand the parameters of the following function
+def exhuastiveObstructionSearch(end: int, k: int = 2, n: int = 5, checkpoint: int = 100, skip: bool=True, logging:bool = False):
     """
     Checks all IrreducibleGLInvariantBundle s of the form 𝛴^α Q ⨂ 𝛴^β S^V on G(k,n) where
     α, β are partitions where all numbers are at most end to see if any of them lift
-    :param k: an integer
-    :param n: an integer
-    :param start: an integer
-    :param end: an integer
-    :param checkpoint: an integer
-    :return: 
+    :param end: an integer, determines how high we are willing to check
+    :param k: an integer, defines the Grassmannian we are working over
+    :param n: an integer, defines the Grassmannian we are working over
+    :param checkpoint: an integer, reports on progress every checkpoint many bundles
+    :param skip: a boolean, whether or not to skip bundles where either α or β is constant
+    :param logging: a boolean, whether or not to send out put to exhuastiveSearch.txt
+    :return: a list of non-linebundle IrreducibleGLInvariantBundles that have 0 obstruction space
     """
-    if k != 2 or n != 5:
-        raise Exception("Currently only the case where k = 2 and n = 5 is supported")
     if end < 0:
         raise Exception("Currently we must have end >= 0")
-    if end < start:
-        raise Exception("Preconditions not met must have start <= end")
     
     check = 0
 
-    # TODO: Implement an iterator to help make this cleaner and easier to generatlize
+    liftableBundles = []
+
     # TODO: Add "infinite" search mode
-    for a in range(start,end+1):
-        for b in range(a+1):
-            for c in range(end+1):
-                for d in range(c+1):
-                    for e in range(d+1):
-                        VB = IrreducibleGLInvariantBundle((a,b),(c,d,e))
-                        if liftable(VB):
-                            print(str(VB) + " has zero obstruction space!!!")
-                        check+=1
-                        if check % checkpoint == 0:
-                            print("We have checked " + str(check) + " Bundles, the last one checked was: " + str(VB))
+    for p1 in combinations_with_replacement(range(end+1),k):
+        if skip and p1[0] == p1[-1]:
+            continue
+        for p2 in combinations_with_replacement(range(end+1),n-k):
+            if skip and p2[0] == p2[-1]:
+                continue
+            VB = IrreducibleGLInvariantBundle(p1[::-1],p2[::-1])
+            if liftable(VB):
+                print(str(VB) + " has zero obstruction space!!!")
+                liftableBundles.append(VB)
+            check+=1
+            if check % checkpoint == 0:
+                print("We have checked " + str(check) + " Bundles, the last one checked was: " + str(VB))
+    print(str(check) + " total bundles checked, the last one was: " + str(VB))
+
+    if logging:
+        file = open("exhuastiveSearch.txt",'a')
+        file.write("Parameters: end={}, k={}, n={}, checkpoint={}, skip={}, logging={}\n".format(end, k, n, checkpoint, skip, logging))
+        file.write("Results: {}\n\n".format(liftableBundles))
+        file.close()
+
+    return liftableBundles
