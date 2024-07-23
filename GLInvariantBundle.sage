@@ -35,12 +35,12 @@ class IrreducibleGLInvariantBundle:
         return (self.qPart() == other.qPart()) and (self.svPart() == other.svPart())
 
     def __mul__(self,other):
+        # TODO: Add documentation to this method
         if type(other) not in [IrreducibleGLInvariantBundle, GLInvariantBundle]:
             raise Exception("Can only multiply a GLInvariantBundle by another GLInvariantBundle")
         if type(other) == GLInvariantBundle:
             return other*(GLInvariantBundle([(self, 1)]))
 
-        # TODO Add documentation to this method
         minQRank = min(len(self.qPart()),len(other.qPart()))
         minSVRank = min(len(self.svPart()),len(other.svPart()))
 
@@ -104,6 +104,10 @@ class IrreducibleGLInvariantBundle:
                     [x+n for x in self.svPart()])
 
     def _computeCohomology(self):
+        """
+        Computes the non-zero cohomology using BBW based on the conventions of Costa et al.
+        :return: Either 0 or a tuple of length n where G(k,n) is the underlying Grassmannian
+        """
         if self._cohomologyRank != -1:
             return
         alpha = self.qPart() + self.svPart()
@@ -127,10 +131,11 @@ class GLInvariantBundle:
     def __init__(self, Bundles: list):
         if len(Bundles) < 1:
             raise Exception("GLInvariantBundle needs at least one bundle")
-        # TO DO: Check that all entries of Bundles are (IrreducibleGLInvariantBundle, integer) pairs
+        # TODO: Check that all entries of Bundles are (IrreducibleGLInvariantBundle, integer) pairs
         self._bundles = Bundles
 
     def __repr__(self):
+        # TODO: Find a better way to print this, is there an easy way to use superscripts for multiplicities?
         s = "({})".format(str(self.bundles()[0][0]))
         for _ in range(1,self.bundles()[0][1]):
             s = "{} ⨁ ({})".format(s, str(self.bundles()[0][0]))
@@ -146,7 +151,7 @@ class GLInvariantBundle:
         if type(other) == IrreducibleGLInvariantBundle:
             return self*(GLInvariantBundle([(other, 1)]))
 
-        # TO DO: introduce a helper function, there is too much indentation here!
+        # TODO: introduce a helper function/method, there is too much indentation here!
         helperDict = {}
         for (VB1, mult1) in self.bundles():
             for (VB2, mult2) in other.bundles():
