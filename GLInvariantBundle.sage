@@ -369,3 +369,61 @@ def exhuastiveObstructionSearch(end: int, k: int = 2, n: int = 5, checkpoint: in
         file.close()
 
     return liftableBundles
+
+
+# Due to efficentcy reasons the above function struggles when end >= 15, it appears that there are too many bundles to check,
+# and vector bundle mutiplication takes too long. While I work on resolving this issue, here is a more specialized version
+# which will only work for G(2,5) and asks for a fixed Schur Functor for Q
+def g25ObstructionSearch(qend: int, svend: int, checkpoint: int = 100, skip: bool=True, logging:bool = False):
+    liftResults = {}
+
+    for a in range(qend+1):
+        for b in range(a):
+            _g25ObstructionSearchHelper((a,b), svend, liftResults, checkpoint,skip,logging)
+    
+
+def _g25ObstructionSearchHelper(qPart: tuple, end: int, liftResults: dict = {}, checkpoint: int = 100, skip: bool=True, logging:bool = False):
+    if len(qPart) != 2:
+        raise Exception("This function only supports G(2,5)")
+    if qPart[0] < qPart[1]:
+        raise Exception("qPart must be weakly decreasing")
+    
+    if skip and qPart[0] == qPart[1]:
+        # TODO: write a proof as to why this is the case, and latex it.
+        print("Nothing with qPart={} will have 0 as its obstruction space, ask Mac why.".format(qPart))
+        return []
+
+    check = 0
+
+    for a in range(end):
+        for b in range(a+1):
+            for c in range(b):
+                m = min(qPart[-1], c)
+                correctedq = (qPart[0]-m,qPart[1]-m)
+                correctedsv = (a-m, b-m, c-m)
+                key = (correctedq, correctedsv)
+                if liftResults.get(key) is not None:
+                    continue
+                VB = IrreducibleGLInvariantBundle(correctedq, correctedsv)
+                if liftable(VB):
+                    liftResults[key] = True
+                else:
+                    liftResults[key] = False
+        
+                check+=1
+                if check % checkpoint == 0:
+                    print("We have checked {} Bundles, the last one checked was: {}".format(check, VB))
+    print("{} total bundles checked for qPart={}, the last one was: {}".format(check, qPart, VB))
+    
+    liftableBundles = []
+    for (bun, val) in liftResults.items():
+        if val:
+            liftableBundles.append(bun)
+
+    if logging:
+        file = open("g25exhuastiveSearch.txt",'a')
+        file.write("Parameters: qPart={}, end={}, checkpoint={}, skip={}, logging={}\n".format(qPart, end, checkpoint, skip, logging))
+        file.write("Results: {}\n\n".format(liftableBundles))
+        file.close()
+
+    return liftResults
