@@ -326,9 +326,10 @@ def exhuastiveObstructionSearch(end: int, start: int = 0, k: int = 2, n: int = 5
     check = 0
 
     # TODO: Implement an iterator to help make this cleaner and easier to generatlize
+    # TODO: Add "infinite" search mode
     for a in range(start,end+1):
         for b in range(a+1):
-            for c in range(start,end+1):
+            for c in range(end+1):
                 for d in range(c+1):
                     for e in range(d+1):
                         VB = IrreducibleGLInvariantBundle((a,b),(c,d,e))
