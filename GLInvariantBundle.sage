@@ -267,7 +267,7 @@ def cotangentBundle(k: int, n: int):
     """
     return tangentBundle(k,n).dual()
 
-def end(bundle):
+def endomorphism(bundle):
     """
     Returns End(bundle) = bundle ⨂ bundle^V
     :param bundle: Either a IrreducibleGLInvariantBundle or a GLInvariantBundle
@@ -296,7 +296,7 @@ def ImodIsquared(k: int, n: int):
 def liftingBundle(bundle: IrreducibleGLInvariantBundle):
     k,n = bundle.grassRank()
     ImI2 = ImodIsquared(k,n)
-    return end(bundle)*ImI2
+    return endomorphism(bundle)*ImI2
 
 def liftable(bundle: IrreducibleGLInvariantBundle):
     l = liftingBundle(bundle)
