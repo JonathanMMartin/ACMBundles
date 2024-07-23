@@ -1,5 +1,4 @@
 from numpy import argsort
-#import numpy as np
 import sage.libs.lrcalc.lrcalc as lrcalc
 
 class IrreducibleGLInvariantBundle:
@@ -85,9 +84,13 @@ class IrreducibleGLInvariantBundle:
             self._computeCohomology()
         return self._cohomologyRank
 
-    def cohomology(self):
+    def cohomology(self, n:int = -1):
         if self._cohomologyRank == -1:
             self._computeCohomology()
+        if n == -1:
+            return self.cohomology(self.cohomologyRank())
+        elif n != self.cohomologyRank():
+            return 0
         return self._cohomology
 
     def dual(self):
