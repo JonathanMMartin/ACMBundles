@@ -24,7 +24,7 @@ class IrreducibleGLInvariantBundle:
 
     def __repr__(self):
         if all(x == 0 for x in [self.qPart()[0], self.qPart()[-1], self.svPart()[0], self.svPart()[-1]]):
-            return "𝒪"
+            return "𝒪_G({},{})".format(self.qRank(), self.qRank()+self.svRank())
         elif self.qPart()[0] == 0 and self.qPart()[-1]==0:
             return "𝛴^{}S^V".format(self.svPart())
         elif self.svPart()[0] == 0 and self.svPart()[-1]==0:
@@ -187,47 +187,62 @@ class GLInvariantBundle:
         return coho
 
 
-def zeroFunctor(rank: int):
-    """
-    Returns a partition of all 0 of length equal to rank
-    :param rank: an integer
-    :return: A tuple of integers
-    """
-    if rank < 0:
-        raise Exception("Rank must be non-negative")
-    return tuple([0]*rank)
+# Here we define helper functions to give us special bundles
 
-
-def wedgeFunctor(n: int, rank: int):
+def trivialBundle(k:int, n: int):
     """
-    Returns a partition corresponding to the nth wedge product length equal to rank
+    Returns the trivial bundle on G(k,n)
+    :param k: an integer
     :param n: an integer
-    :param rank: an integer
-    :return: A tuple of integers
+    :return: An IrreducibleGLInvariantBundle
     """
-    if (rank < 0) or (n < 1):
-        raise Exception("Rank must be non-negative and n must be positive")
-    if rank < n:
-        return []
-    p = [1]*n
-    p.extend([0]*(rank-n))
-    return tuple(p)
+    if (k < 0) or (n <= k):
+        raise Exception("Preconditions not met, must have 0 < k < n")
+    return IrreducibleGLInvariantBundle(tuple([0]*k), tuple([0]*(n-k)))
 
 
-def symetricFunctor(n: int, rank: int):
+def wedgeBundle(k: int, n: int, m: int, Q: bool = True):
     """
-    Returns a partition corresponding to the nth symetric functor of length equal to rank
+    Returns the mth wedge product of Q (or S^V) on G(k,n)
+    :param k: an integer
     :param n: an integer
-    :param rank: an integer
-    :return: A tuple of integers
+    :param m: an integer
+    :param Q: a boolean
+    :return: An IrreducibleGLInvariantBundle
     """
-    if (rank < 0) or (n < 1):
-        raise Exception("Rank must be non-negative and n must be positive")
-    if rank == 0:
-        return []
-    p = [0]*rank
-    p[0]=n
-    return tuple(p)
+    if (k < 0) or (n <= k):
+        raise Exception("Preconditions not met, must have 0 < k < n")
+    if Q:
+        if k < m:
+            raise Exception("m must be at most the dimension of Q")
+        p = [1]*m
+        p.extend([0]*(k-m))
+        return IrreducibleGLInvariantBundle(tuple(p), tuple([0]*(n-k)))
+    
+    if m > n-k:
+        raise Exception("m must be at most the dimension of S^V")
+    p = [1]*m
+    p.extend([0]*(n-k-m))
+    return IrreducibleGLInvariantBundle(tuple([0]*k), tuple(p))
+
+def symetricBundle(k: int, n: int, m: int, Q: bool = True):
+    """
+    Returns the mth symetric of Q (or S^V) on G(k,n)
+    :param k: an integer
+    :param n: an integer
+    :param m: an integer
+    :param Q: a boolean
+    :return: An IrreducibleGLInvariantBundle
+    """
+    if (k < 0) or (n <= k):
+        raise Exception("Preconditions not met, must have 0 < k < n")
+    if Q:
+        p = [0]*k
+        p[0] = m
+        return IrreducibleGLInvariantBundle(tuple(p), tuple([0]*(n-k)))
+    p = [0]*(n-k)
+    p[0] = m
+    return IrreducibleGLInvariantBundle(tuple([0]*k), tuple(p))
 
 def tangentBundle(k: int, n: int):
     """
