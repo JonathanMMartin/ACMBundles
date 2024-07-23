@@ -35,6 +35,12 @@ class IrreducibleGLInvariantBundle:
         return (self.qPart() == other.qPart()) and (self.svPart() == other.svPart())
 
     def __mul__(self,other):
+        if type(other) not in [IrreducibleGLInvariantBundle, GLInvariantBundle]:
+            raise Exception("Can only multiply a GLInvariantBundle by another GLInvariantBundle")
+        if type(other) == GLInvariantBundle:
+            return other*(GLInvariantBundle([(self, 1)]))
+
+        # TODO Add documentation to this method
         minQRank = min(len(self.qPart()),len(other.qPart()))
         minSVRank = min(len(self.svPart()),len(other.svPart()))
 
@@ -131,6 +137,11 @@ class GLInvariantBundle:
         return s
 
     def __mul__(self,other):
+        if type(other) not in [IrreducibleGLInvariantBundle, GLInvariantBundle]:
+            raise Exception("Can only multiply a GLInvariantBundle by another GLInvariantBundle")
+        if type(other) == IrreducibleGLInvariantBundle:
+            return self*(GLInvariantBundle([(other, 1)]))
+
         # TO DO: introduce a helper function, there is too much indentation here!
         helperDict = {}
         for (VB1, mult1) in self.bundles():
@@ -235,7 +246,7 @@ def cotangentBundle(k: int, n: int):
 def end(bundle):
     """
     Returns End(bundle) = bundle ⨂ bundle^V
-    :param bundle: Either a IrreducibleGLIncariantBundle or a GLInvariantBundle
+    :param bundle: Either a IrreducibleGLInvariantBundle or a GLInvariantBundle
     :return: A GLInvariantBundle
     """
     return bundle*(bundle.dual())
@@ -261,7 +272,7 @@ def ImodIsquared(k: int, n: int):
 def liftingBundle(bundle: IrreducibleGLInvariantBundle):
     k,n = bundle.grassRank()
     ImI2 = ImodIsquared(k,n)
-    return end(bundle)*GLInvariantBundle([(ImI2,1)])
+    return end(bundle)*ImI2
 
 def liftable(bundle: IrreducibleGLInvariantBundle):
     l = liftingBundle(bundle)
