@@ -13,7 +13,7 @@ class IrreducibleGLInvariantBundle:
     _cohomology = ()
     
 
-    def __init__(self, Qpartition: tuple, SVpartition: tuple, twist:int = 0):
+    def __init__(self, Qpartition: tuple, SVpartition: tuple):
         if not(all(Qpartition[i] >= Qpartition[i+1] for i in range(len(Qpartition)-1))):
             raise Exception("Qpartition must be weakly decreasing")
         if not(all(SVpartition[i] >= SVpartition[i+1] for i in range(len(SVpartition)-1))):
@@ -24,11 +24,11 @@ class IrreducibleGLInvariantBundle:
         self._cohomology = ()
 
     def __repr__(self):
-        if all(x == 0 for x in [self.qPart()[0], self.qPart()[-1], self.svPart()[0], self.svPart()[-1]]):
+        if self.noQ() and self.noSV():
             return "𝒪_G({},{})".format(self.qRank(), self.qRank()+self.svRank())
-        elif self.qPart()[0] == 0 and self.qPart()[-1]==0:
+        elif self.noQ():
             return "𝛴^{}S^V".format(self.svPart())
-        elif self.svPart()[0] == 0 and self.svPart()[-1]==0:
+        elif self.noSV():
             return "𝛴^{}Q".format(self.qPart())
         return "𝛴^{}Q ⨂ 𝛴^{}S^V".format(self.qPart(), self.svPart())
 
@@ -79,6 +79,12 @@ class IrreducibleGLInvariantBundle:
 
     def grassRank(self):
         return self.qRank(), self.qRank() + self.svRank()
+
+    def noQ(self):
+        return self.qPart()[0] == 0 and self.qPart()[-1] == 0
+
+    def noSV(self):
+        return self.svPart()[0] == 0 and self.svPart()[-1] == 0
 
     def cohomologyRank(self):
         if self._cohomologyRank == -1:
@@ -325,23 +331,36 @@ def exhuastiveObstructionSearch(end: int, k: int = 2, n: int = 5, checkpoint: in
     
     check = 0
 
-    liftableBundles = []
+    liftResults = {}
 
     # TODO: Add "infinite" search mode
-    for p1 in combinations_with_replacement(range(end+1),k):
-        if skip and p1[0] == p1[-1]:
+    for qPart in combinations_with_replacement(range(end+1),k):
+        if skip and qPart[0] == qPart[-1]:
             continue
-        for p2 in combinations_with_replacement(range(end+1),n-k):
-            if skip and p2[0] == p2[-1]:
+        for svPart in combinations_with_replacement(range(end+1),n-k):
+            if skip and svPart[0] == svPart[-1]:
                 continue
-            VB = IrreducibleGLInvariantBundle(p1[::-1],p2[::-1])
+            m = min(qPart[0],svPart[0])
+            correctedq = tuple([x-m for x in qPart[::-1]])
+            correctedsv = tuple([x-m for x in svPart[::-1]])
+            key = (correctedq, correctedsv)
+            if liftResults.get(key) is not None:
+                continue
+            VB = IrreducibleGLInvariantBundle(correctedq,correctedsv)
             if liftable(VB):
                 print(str(VB) + " has zero obstruction space!!!")
-                liftableBundles.append(VB)
+                liftResults[key] = True
+            else:
+                liftResults[key] = False
             check+=1
             if check % checkpoint == 0:
                 print("We have checked " + str(check) + " Bundles, the last one checked was: " + str(VB))
     print(str(check) + " total bundles checked, the last one was: " + str(VB))
+
+    liftableBundles = []
+    for (bun, val) in liftResults.items():
+        if val:
+            liftableBundles.append(bun)
 
     if logging:
         file = open("exhuastiveSearch.txt",'a')
