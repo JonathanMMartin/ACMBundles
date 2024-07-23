@@ -1,4 +1,5 @@
-import numpy as np
+from numpy import argsort
+#import numpy as np
 import sage.libs.lrcalc.lrcalc as lrcalc
 
 class IrreducibleGLInvariantBundle:
@@ -108,7 +109,7 @@ class IrreducibleGLInvariantBundle:
             self._cohomologyRank = None
             self._cohomology = 0
         else:
-            self._cohomologyRank = Permutation(np.argsort(list(reversed(alphaRho)))+1).length()
+            self._cohomologyRank = Permutation(argsort(list(reversed(alphaRho)))+1).length()
             alphaRho.sort(reverse=True)
             self._cohomology = tuple([alphaRho[i]-len(alphaRho)+i for i in range(len(alphaRho))])
 
