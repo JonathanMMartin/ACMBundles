@@ -1,6 +1,13 @@
+# Python Imports
 from numpy import argsort
-import sage.libs.lrcalc.lrcalc as lrcalc
 from itertools import combinations_with_replacement
+import pickle
+
+# Sage Imports
+import sage.libs.lrcalc.lrcalc as lrcalc
+
+
+# TODO: Split this across multiple files
 
 class IrreducibleGLInvariantBundle:
     """
@@ -195,7 +202,6 @@ class GLInvariantBundle:
 
 
 # Here we define helper functions to give us special bundles
-
 def trivialBundle(k:int, n: int):
     """
     Returns the trivial bundle on G(k,n)
@@ -206,7 +212,6 @@ def trivialBundle(k:int, n: int):
     if (k < 0) or (n <= k):
         raise Exception("Preconditions not met, must have 0 < k < n")
     return IrreducibleGLInvariantBundle(tuple([0]*k), tuple([0]*(n-k)))
-
 
 def wedgeBundle(k: int, n: int, m: int, Q: bool = True):
     """
@@ -300,6 +305,7 @@ def ImodIsquared(k: int, n: int):
     svpartition[1] = 1
     return IrreducibleGLInvariantBundle((-1,-1),tuple(svpartition))
 
+# Here we define functions that help us compute the obstruction space of a vector bundle
 def liftingBundle(bundle: IrreducibleGLInvariantBundle):
     k,n = bundle.grassRank()
     ImI2 = ImodIsquared(k,n)
@@ -314,116 +320,86 @@ def liftable(bundle: IrreducibleGLInvariantBundle):
 
 # Here we define the function that will do the main search work for us
 # In order to use this code the minimum requirement is to understand the parameters of the following function
-def exhuastiveObstructionSearch(end: int, k: int = 2, n: int = 5, checkpoint: int = 100, skip: bool=True, logging:bool = False):
+def exhuastiveObstructionSearch(end: int, k: int = 2, n: int = 5, checkpoint: int = 100, logging:bool = False):
     """
     Checks all IrreducibleGLInvariantBundle s of the form 𝛴^α Q ⨂ 𝛴^β S^V on G(k,n) where
     α, β are partitions where all numbers are at most end to see if any of them lift
     :param end: an integer, determines how high we are willing to check
     :param k: an integer, defines the Grassmannian we are working over
     :param n: an integer, defines the Grassmannian we are working over
-    :param checkpoint: an integer, reports on progress every checkpoint many bundles
-    :param skip: a boolean, whether or not to skip bundles where either α or β is constant
-    :param logging: a boolean, whether or not to send out put to exhuastiveSearch.txt
+    :param checkpoint: an integer, how often to report on progress and save the results to a .pickle file
+    :param logging: a boolean, whether or not to send output to a .txt file to record the results
     :return: a list of non-linebundle IrreducibleGLInvariantBundles that have 0 obstruction space
     """
     if end < 0:
         raise Exception("Currently we must have end >= 0")
     
-    check = 0
-
-    liftResults = {}
+    liftResults = _getObstructionResults(k,n)
 
     # TODO: Add "infinite" search mode
+    check = 0
+    VB = trivialBundle(k,n)
+    # TODO: clean this up, it is confusing the way that we are manipulating these tuples, it is correct, but there must be a cleaner way
     for qPart in combinations_with_replacement(range(end+1),k):
-        if skip and qPart[0] == qPart[-1]:
-            continue
-        for svPart in combinations_with_replacement(range(end+1),n-k):
-            if skip and svPart[0] == svPart[-1]:
-                continue
+        for svPart in combinations_with_replacement(range(end+1),n-k):            
+            # Note that a bundle has 0 cohomology iff any shifted version of it has 0 second cohomology
+            # Therefore it suffices to "normalize" the bundle and check if that version has 0 obstruction space
             m = min(qPart[0],svPart[0])
             correctedq = tuple([x-m for x in qPart[::-1]])
             correctedsv = tuple([x-m for x in svPart[::-1]])
             key = (correctedq, correctedsv)
+            
+            # If liftResults already has a value for this, then we have already check if an equivalent
+            # bundles has zero obstruction space, so it is not needed to check this one.
             if liftResults.get(key) is not None:
                 continue
+            
             VB = IrreducibleGLInvariantBundle(correctedq,correctedsv)
-            if liftable(VB):
+            liftResults[key] = liftable(VB)
+            if liftResults[key]:
                 print(str(VB) + " has zero obstruction space!!!")
-                liftResults[key] = True
-            else:
-                liftResults[key] = False
+            
             check+=1
             if check % checkpoint == 0:
-                print("We have checked " + str(check) + " Bundles, the last one checked was: " + str(VB))
-    print(str(check) + " total bundles checked, the last one was: " + str(VB))
-
-    liftableBundles = []
-    for (bun, val) in liftResults.items():
-        if val:
-            liftableBundles.append(bun)
-
-    if logging:
-        file = open("exhuastiveSearch.txt",'a')
-        file.write("Parameters: end={}, k={}, n={}, checkpoint={}, skip={}, logging={}\n".format(end, k, n, checkpoint, skip, logging))
-        file.write("Results: {}\n\n".format(liftableBundles))
-        file.close()
-
-    return liftableBundles
-
-
-# Due to efficentcy reasons the above function struggles when end >= 15, it appears that there are too many bundles to check,
-# and vector bundle mutiplication takes too long. While I work on resolving this issue, here is a more specialized version
-# which will only work for G(2,5) and asks for a fixed Schur Functor for Q
-def g25ObstructionSearch(qend: int, svend: int, checkpoint: int = 100, skip: bool=True, logging:bool = False):
-    liftResults = {}
-
-    for a in range(qend+1):
-        for b in range(a):
-            _g25ObstructionSearchHelper((a,b), svend, liftResults, checkpoint,skip,logging)
-    
-
-def _g25ObstructionSearchHelper(qPart: tuple, end: int, liftResults: dict = {}, checkpoint: int = 100, skip: bool=True, logging:bool = False):
-    if len(qPart) != 2:
-        raise Exception("This function only supports G(2,5)")
-    if qPart[0] < qPart[1]:
-        raise Exception("qPart must be weakly decreasing")
-    
-    if skip and qPart[0] == qPart[1]:
-        # TODO: write a proof as to why this is the case, and latex it.
-        print("Nothing with qPart={} will have 0 as its obstruction space, ask Mac why.".format(qPart))
-        return []
-
-    check = 0
-
-    for a in range(end):
-        for b in range(a+1):
-            for c in range(b):
-                m = min(qPart[-1], c)
-                correctedq = (qPart[0]-m,qPart[1]-m)
-                correctedsv = (a-m, b-m, c-m)
-                key = (correctedq, correctedsv)
-                if liftResults.get(key) is not None:
-                    continue
-                VB = IrreducibleGLInvariantBundle(correctedq, correctedsv)
-                if liftable(VB):
-                    liftResults[key] = True
-                else:
-                    liftResults[key] = False
-        
-                check+=1
-                if check % checkpoint == 0:
-                    print("We have checked {} Bundles, the last one checked was: {}".format(check, VB))
-    print("{} total bundles checked for qPart={}, the last one was: {}".format(check, qPart, VB))
-    
-    liftableBundles = []
-    for (bun, val) in liftResults.items():
-        if val:
-            liftableBundles.append(bun)
+                print("We have checked {} new bundles so far, the last one checked was: {}".format(check,VB))
+                _saveObstructionResults(liftResults, k, n)
+    if check == 0:
+        print("No new results found")
+    else:
+        print("{} total new bundles checked, the last one was: {}".format(check, VB))
+    _saveObstructionResults(liftResults, k, n)
 
     if logging:
-        file = open("g25exhuastiveSearch.txt",'a')
-        file.write("Parameters: qPart={}, end={}, checkpoint={}, skip={}, logging={}\n".format(qPart, end, checkpoint, skip, logging))
-        file.write("Results: {}\n\n".format(liftableBundles))
-        file.close()
+        _outputSearchResults(end, k, n)
 
+# Here are some helper functions to aid with logging the results.
+def bundlesWith0ObstructionSpace(k: int, n: int):
+    results = _getObstructionResults(k,n)
+    bundles = []
+    for (bun, value) in results.items():
+        if value:
+            bundles.append(bun)
+    return bundles
+
+def _outputSearchResults(end: int, k: int, n: int):
+    bundles = bundlesWith0ObstructionSpace(k,n)
+    file = open("g{}{}obstructionSearch.txt".format(k,n),'a')
+    file.write("The results from using the parameters: end={}, k={}, n={} are: \n".format(end, k, n))
+    file.write("Results: {}\n\n".format(bundles))
+    file.close()
+
+def _getObstructionResults(k: int, n: int):
+    try:
+        with open("g{}{}ObstructionResults.pickle".format(k,n), "rb") as f:
+            liftResults = pickle.load(f)
+    except:
+        print("No results found for G({},{})".format(k,n))
+        liftResults = {}
     return liftResults
+
+def _saveObstructionResults(results: dict, k: int, n: int):
+    try:
+        with open("g{}{}ObstructionResults.pickle".format(k,n), "wb") as f:
+            pickle.dump(results,f)
+    except:
+        print("There was an error while saving the results. Please verify the integrety of the results file")
