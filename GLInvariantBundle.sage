@@ -320,7 +320,7 @@ def liftable(bundle: IrreducibleGLInvariantBundle):
 
 # Here we define the function that will do the main search work for us
 # In order to use this code the minimum requirement is to understand the parameters of the following function
-def exhuastiveObstructionSearch(end: int, k: int = 2, n: int = 5, skip: bool = False, checkpoint: int = 100, logging:bool = False):
+def exhuastiveObstructionSearch(end: int, k: int = 2, n: int = 5, skip: bool = False, maxNew: int = -1, checkpoint: int = 100, logging:bool = False):
     """
     Checks all IrreducibleGLInvariantBundle s of the form 𝛴^α Q ⨂ 𝛴^β S^V on G(k,n) where
     α, β are partitions where all numbers are at most end to see if any of them lift
@@ -338,7 +338,10 @@ def exhuastiveObstructionSearch(end: int, k: int = 2, n: int = 5, skip: bool = F
     liftResults = _getObstructionResults(k,n)
 
     # TODO: Add "infinite" search mode
-    check = 0
+    
+    possiblitycounter = 0
+    checkcounter = 0
+    
     VB = trivialBundle(k,n)
     # TODO: clean this up, it is confusing the way that we are manipulating these tuples, it is correct, but there must be a cleaner way
     for qPart in combinations_with_replacement(range(end+1),k):
@@ -357,26 +360,33 @@ def exhuastiveObstructionSearch(end: int, k: int = 2, n: int = 5, skip: bool = F
 
             # If liftResults already has a value for this, then we have already check if an equivalent
             # bundles has zero obstruction space, so it is not needed to check this one.
+            possiblitycounter += 1
             if liftResults.get(key) is not None:
                 continue
             
             VB = IrreducibleGLInvariantBundle(correctedq,correctedsv)
             liftResults[key] = liftable(VB)
             if liftResults[key]:
-                print(str(VB) + " has zero obstruction space!!!")
+                print("{} has zero obstruction space!!!".format(VB))
             
-            check+=1
-            if check % checkpoint == 0:
-                print("We have checked {} new bundles so far, the last one checked was: {}".format(check,VB))
+            checkcounter+=1
+            if checkcounter % checkpoint == 0:
+                print("We have checked {} new bundles so far, the last one checked was: {}".format(checkcounter,VB))
                 _saveObstructionResults(liftResults, k, n)
-    if check == 0:
-        print("No new results found")
+            if checkcounter == maxNew:
+                break
+        if checkcounter == maxNew:
+            break
+    if checkcounter == 0:
+        print("There were {} bundles in the given search space. Of them no new results were found".format(possiblitycounter))
+    elif checkcounter == maxNew:
+        print("{} new bundles were checked. The last one was {}".format(checkcounter, VB))
     else:
-        print("{} total new bundles checked, the last one was: {}".format(check, VB))
+        print("There were {} bundles in the given search space. Of them {} were new bundles, the last one was: {}".format(possiblitycounter, checkcounter, VB))
     _saveObstructionResults(liftResults, k, n)
 
     if logging:
-        _outputSearchResults(end, k, n, skip)
+        _outputSearchResults(end, k, n, skip, maxNew)
 
 # Here are some helper functions to aid with logging the results.
 def bundlesWith0ObstructionSpace(k: int, n: int):
@@ -387,10 +397,10 @@ def bundlesWith0ObstructionSpace(k: int, n: int):
             bundles.append(bun)
     return bundles
 
-def _outputSearchResults(end: int, k: int, n: int, skip: bool):
+def _outputSearchResults(end: int, k: int, n: int, skip: bool, maxNew: int):
     bundles = bundlesWith0ObstructionSpace(k,n)
     file = open("g{}{}obstructionSearch.txt".format(k,n),'a')
-    file.write("The results from using the parameters: end={}, k={}, n={}, skip={} are: \n".format(end, k, n, skip))
+    file.write("The results from using the parameters: end={}, k={}, n={}, skip={}, maxNew={} are: \n".format(end, k, n, skip, maxNew))
     file.write("Results: {}\n\n".format(bundles))
     file.close()
 
