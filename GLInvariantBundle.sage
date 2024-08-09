@@ -8,6 +8,9 @@ import sage.libs.lrcalc.lrcalc as lrcalc
 
 
 # TODO: Split this across multiple files
+# TODO: Improve error handling (try and except) for larger methods like multiplication
+# TODO: When multiplication of IrreducibleGLInvariantBundles results in a list of exactly one bundle with multiplicity 1, should
+#       it return an IrreducibleGLInvariantBundle? Or would that cause some annoying problems?
 
 class IrreducibleGLInvariantBundle:
     """
@@ -21,14 +24,15 @@ class IrreducibleGLInvariantBundle:
     
 
     def __init__(self, Qpartition: tuple, SVpartition: tuple):
-        if not(all(Qpartition[i] >= Qpartition[i+1] for i in range(len(Qpartition)-1))):
-            raise Exception("Qpartition must be weakly decreasing")
-        if not(all(SVpartition[i] >= SVpartition[i+1] for i in range(len(SVpartition)-1))):
-            raise Exception("SVpartition must be weakly decreasing")
-        self._Qpartition = Qpartition
-        self._SVpartition = SVpartition    
-        self._cohomologyRank = -1
-        self._cohomology = ()
+        try:
+            assert all(Qpartition[i] >= Qpartition[i+1] for i in range(len(Qpartition)-1)), "Qpartition must be weakly decreasing"
+            assert all(SVpartition[i] >= SVpartition[i+1] for i in range(len(SVpartition)-1)), "SVpartition must be weakly decreasing"
+            self._Qpartition = Qpartition
+            self._SVpartition = SVpartition    
+            self._cohomologyRank = -1
+            self._cohomology = ()
+        except AssertionError as err:
+            print("Error:", err)
 
     def __repr__(self):
         if self.noQ() and self.noSV():
@@ -143,11 +147,13 @@ class GLInvariantBundle:
     _bundles = []
 
     def __init__(self, Bundles: list):
-        if len(Bundles) < 1:
-            raise Exception("GLInvariantBundle needs at least one bundle")
-        # TODO: Check that all entries of Bundles are (IrreducibleGLInvariantBundle, integer) pairs
-        self._bundles = Bundles
-
+        try:
+            assert len(Bundles) > 0, "GLInvariantBundle needs at least one bundle"
+            # TODO: Check that all entries of Bundles are (IrreducibleGLInvariantBundle, integer) pairs
+            self._bundles = Bundles
+        except AssertionError as err:
+            print("Error: ", err)
+        
     def __repr__(self):
         # TODO: Find a better way to print this, is there an easy way to use superscripts for multiplicities?
         s = "({})".format(str(self.bundles()[0][0]))
@@ -209,9 +215,11 @@ def trivialBundle(k:int, n: int):
     :param n: an integer
     :return: An IrreducibleGLInvariantBundle
     """
-    if (k < 0) or (n <= k):
-        raise Exception("Preconditions not met, must have 0 < k < n")
-    return IrreducibleGLInvariantBundle(tuple([0]*k), tuple([0]*(n-k)))
+    try:
+        assert (0 < k) and (k < n), "Preconditions not met, must have 0 < k < n"
+        return IrreducibleGLInvariantBundle(tuple([0]*k), tuple([0]*(n-k)))
+    except AssertionError as err:
+        print("Error: ", err)
 
 def wedgeBundle(k: int, n: int, m: int, Q: bool = True):
     """
@@ -222,20 +230,19 @@ def wedgeBundle(k: int, n: int, m: int, Q: bool = True):
     :param Q: a boolean
     :return: An IrreducibleGLInvariantBundle
     """
-    if (k < 0) or (n <= k):
-        raise Exception("Preconditions not met, must have 0 < k < n")
-    if Q:
-        if k < m:
-            raise Exception("m must be at most the dimension of Q")
+    try:
+        assert (0 < k) and (k < n), "Preconditions not met, must have 0 < k < n"
+        if Q:
+            assert m <=k, "For the wedge product of Q, m must be at most the dimension of Q (which is k)"
+            p = [1]*m
+            p.extend([0]*(k-m))
+            return IrreducibleGLInvariantBundle(tuple(p), tuple([0]*(n-k)))
+        assert m <= n-k, "For the wedge product of S^V, m must be at most the dimenstion of S^V (which is n-k)"
         p = [1]*m
-        p.extend([0]*(k-m))
-        return IrreducibleGLInvariantBundle(tuple(p), tuple([0]*(n-k)))
-    
-    if m > n-k:
-        raise Exception("m must be at most the dimension of S^V")
-    p = [1]*m
-    p.extend([0]*(n-k-m))
-    return IrreducibleGLInvariantBundle(tuple([0]*k), tuple(p))
+        p.extend([0]*(n-k-m))
+        return IrreducibleGLInvariantBundle(tuple([0]*k), tuple(p))
+    except AssertionError as err:
+        print("Error: ", err)
 
 def symetricBundle(k: int, n: int, m: int, Q: bool = True):
     """
@@ -246,15 +253,17 @@ def symetricBundle(k: int, n: int, m: int, Q: bool = True):
     :param Q: a boolean
     :return: An IrreducibleGLInvariantBundle
     """
-    if (k < 0) or (n <= k):
-        raise Exception("Preconditions not met, must have 0 < k < n")
-    if Q:
-        p = [0]*k
+    try:
+        assert (0 < k) and (k < n), "Preconditions not met, must have 0 < k < n"
+        if Q:
+            p = [0]*k
+            p[0] = m
+            return IrreducibleGLInvariantBundle(tuple(p), tuple([0]*(n-k)))
+        p = [0]*(n-k)
         p[0] = m
-        return IrreducibleGLInvariantBundle(tuple(p), tuple([0]*(n-k)))
-    p = [0]*(n-k)
-    p[0] = m
-    return IrreducibleGLInvariantBundle(tuple([0]*k), tuple(p))
+        return IrreducibleGLInvariantBundle(tuple([0]*k), tuple(p))
+    except AssertionError as err:
+        print("Error: ", err)
 
 def tangentBundle(k: int, n: int):
     """
@@ -294,16 +303,15 @@ def ImodIsquared(k: int, n: int):
     :param n: a positive integer strictly greater than k
     :return: A VectorBundle
     """
-    if (k < 0) or (n <= k):
-        raise Exception("Preconditions not met, must have 0 < k < n")
-
-    if (k != 2) or (n < 4):
-        raise NotImplementedError("Currently only the case where k = 2 and n >=4 is supported")
-
-    svpartition = [0]*(n-2)
-    svpartition[0] = 1
-    svpartition[1] = 1
-    return IrreducibleGLInvariantBundle((-1,-1),tuple(svpartition))
+    try:
+        assert (0 < k) and (k < n), "Preconditions not met, must have 0 < k < n"
+        assert (k == 2) and (4 <= n), "Currently only the case where k = 2 and n >=4 is supported"
+        svpartition = [0]*(n-2)
+        svpartition[0] = 1
+        svpartition[1] = 1
+        return IrreducibleGLInvariantBundle((-1,-1),tuple(svpartition))
+    except AssertionError as err:
+        print("Error: ", err)
 
 # Here we define functions that help us compute the obstruction space of a vector bundle
 def liftingBundle(bundle: IrreducibleGLInvariantBundle):
